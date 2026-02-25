@@ -19,4 +19,4 @@ allow-direct-references = true
 packages = ["source_code/shared_sprout_data"]
 
 [tool.uv.sources]
-database-dimension = { git = "https://github.com/CodeThatCodes/python-packages", subdirectory = "database-dimension", rev = "main" }
+database-dimension = { path = "../../python-packages/database-dimension", editable = true }
