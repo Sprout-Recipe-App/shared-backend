@@ -18,5 +18,3 @@ allow-direct-references = true
 [tool.hatch.build.targets.wheel]
 packages = ["source_code/shared_sprout_data"]
 
-[tool.uv.sources]
-database-dimension = { git = "https://github.com/CodeThatCodes/python-packages", subdirectory = "database-dimension", rev = "main" }
