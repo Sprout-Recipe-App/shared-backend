@@ -18,7 +18,3 @@ allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["source_code/shared_backend"]
-
-[tool.uv.sources]
-database-dimension = { path = "../../python-packages/database-dimension", editable = true }
-fast-server = { path = "../../python-packages/fast-server", editable = true }
