@@ -79,16 +79,13 @@ class AuthenticateUser(APIOperation):
                 "email": existing_user.account.email if existing_user.account else None,
             }
 
-        new_user_data = {
-            "_id": user_id,
-            "account": UserAccount(user_id=user_id).model_dump(mode="json"),
-            "preferences": UserPreferences(top_goals=top_goals).model_dump(mode="json"),
-            "points": 0,
-        }
-        if name and birthday:
-            new_user_data["identity"] = UserIdentity(name=name, birthday=birthday).model_dump(mode="json")
-
-        await User.insert_one(new_user_data)
+        new_user = User(
+            id=user_id,
+            account=UserAccount(user_id=user_id),
+            identity=UserIdentity(name=name, birthday=birthday) if name and birthday else None,
+            preferences=UserPreferences(top_goals=top_goals),
+        )
+        await new_user.save()
 
         for hook in self._post_signup_hooks:
             await hook(user_id)
