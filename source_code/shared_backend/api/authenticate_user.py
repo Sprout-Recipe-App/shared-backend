@@ -48,16 +48,21 @@ class AuthenticateUser(APIOperation):
         top_goals: list[str] = Body([]),
     ) -> dict:
         try:
+            return await self._authenticate(identity_token, name, birthday, top_goals)
+        except HTTPException:
+            raise
+        except Exception:
+            traceback.print_exc()
+            raise HTTPException(status_code=500, detail="Internal server error during authentication.")
+
+    async def _authenticate(self, identity_token: str, name, birthday, top_goals) -> dict:
+        try:
             user_id = await self._verify_apple_token(identity_token)
         except Exception:
             traceback.print_exc()
             raise HTTPException(status_code=401, detail="Invalid or expired Apple identity token.")
 
-        try:
-            existing_user = await User.find_one({"account.user_id": user_id})
-        except Exception as e:
-            traceback.print_exc()
-            raise HTTPException(status_code=500, detail=f"Database error: {type(e).__name__}: {e}")
+        existing_user = await User.find_one({"account.user_id": user_id})
 
         if existing_user:
             updates = {}
