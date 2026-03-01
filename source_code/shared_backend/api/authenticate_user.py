@@ -66,16 +66,24 @@ class AuthenticateUser(APIOperation):
 
         if existing_user:
             updates = {}
-            if name and existing_user.identity and existing_user.identity.name != name:
-                updates["identity.name"] = name
-            if birthday and existing_user.identity and existing_user.identity.birthday != birthday:
-                updates["identity.birthday"] = birthday
+            if name:
+                if not existing_user.identity:
+                    updates["identity"] = {"name": name}
+                elif existing_user.identity.name != name:
+                    updates["identity.name"] = name
+            if birthday:
+                if existing_user.identity and existing_user.identity.birthday != birthday:
+                    updates["identity.birthday"] = birthday
+                elif not existing_user.identity and name:
+                    updates.setdefault("identity", {})["birthday"] = birthday
             if updates:
                 await User.update_one({"account.user_id": user_id}, {"$set": updates})
+
+            resolved_name = name or (existing_user.identity.name if existing_user.identity else None)
             return {
                 "user_id": user_id,
                 "is_new_user": False,
-                "name": existing_user.identity.name if existing_user.identity else None,
+                "name": resolved_name,
                 "email": existing_user.account.email if existing_user.account else None,
             }
 
