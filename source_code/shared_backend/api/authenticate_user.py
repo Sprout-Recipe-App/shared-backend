@@ -31,7 +31,7 @@ class AuthenticateUser(APIOperation):
         cls._post_signup_hooks.append(hook)
 
     @classmethod
-    async def _verify_apple_token(cls, identity_token: str) -> str:
+    async def _verify_apple_token(cls, identity_token: str) -> tuple[str, str | None]:
         jwks_client = PyJWKClient(cls.APPLE_PUBLIC_KEYS_URL)
         signing_key = jwks_client.get_signing_key_from_jwt(identity_token)
         decoded = jwt.decode(
@@ -41,7 +41,7 @@ class AuthenticateUser(APIOperation):
             audience=cls.VALID_AUDIENCES,
             issuer="https://appleid.apple.com",
         )
-        return decoded["sub"]
+        return decoded["sub"], decoded.get("email")
 
     async def execute(
         self,
@@ -60,7 +60,7 @@ class AuthenticateUser(APIOperation):
 
     async def _authenticate(self, identity_token: str, name, birthday, top_goals) -> dict:
         try:
-            user_id = await self._verify_apple_token(identity_token)
+            user_id, email = await self._verify_apple_token(identity_token)
         except Exception:
             raise HTTPException(status_code=401, detail="Invalid or expired Apple identity token.")
 
@@ -68,6 +68,8 @@ class AuthenticateUser(APIOperation):
 
         if existing_user:
             updates = {}
+            if email and not existing_user.account.email:
+                updates["account.email"] = email
             if name:
                 if not existing_user.identity:
                     updates["identity"] = {"name": name}
@@ -82,16 +84,17 @@ class AuthenticateUser(APIOperation):
                 await User.update_one({"account.user_id": user_id}, {"$set": updates})
 
             resolved_name = name or (existing_user.identity.name if existing_user.identity else None)
+            resolved_email = email or (existing_user.account.email if existing_user.account else None)
             return {
                 "user_id": user_id,
                 "is_new_user": False,
                 "name": resolved_name,
-                "email": existing_user.account.email if existing_user.account else None,
+                "email": resolved_email,
             }
 
         new_user = User(
             id=user_id,
-            account=UserAccount(user_id=user_id),
+            account=UserAccount(user_id=user_id, email=email),
             identity=UserIdentity(name=name, birthday=birthday) if name and birthday else None,
             preferences=UserPreferences(top_goals=top_goals),
         )
