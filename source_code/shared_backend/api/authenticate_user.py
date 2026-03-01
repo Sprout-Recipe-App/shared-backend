@@ -1,3 +1,4 @@
+import logging
 import os
 import traceback
 from collections.abc import Awaitable, Callable
@@ -11,6 +12,8 @@ from jwt import PyJWKClient
 from fast_server import APIOperation
 
 from shared_backend.data.user_related.user.user import User, UserAccount, UserIdentity, UserPreferences
+
+logger = logging.getLogger(__name__)
 
 
 class AuthenticateUser(APIOperation):
@@ -59,17 +62,9 @@ class AuthenticateUser(APIOperation):
         try:
             user_id = await self._verify_apple_token(identity_token)
         except Exception:
-            traceback.print_exc()
             raise HTTPException(status_code=401, detail="Invalid or expired Apple identity token.")
 
         existing_user = await User.find_one({"account.user_id": user_id})
-
-        print(f"[AUTH DEBUG] user_id={user_id}")
-        print(f"[AUTH DEBUG] name from request={name}")
-        print(f"[AUTH DEBUG] existing_user found={existing_user is not None}")
-        if existing_user:
-            print(f"[AUTH DEBUG] existing_user.identity={existing_user.identity}")
-            print(f"[AUTH DEBUG] existing_user.account={existing_user.account}")
 
         if existing_user:
             updates = {}
@@ -84,11 +79,9 @@ class AuthenticateUser(APIOperation):
                 elif not existing_user.identity and name:
                     updates.setdefault("identity", {})["birthday"] = birthday
             if updates:
-                print(f"[AUTH DEBUG] updating user with: {updates}")
                 await User.update_one({"account.user_id": user_id}, {"$set": updates})
 
             resolved_name = name or (existing_user.identity.name if existing_user.identity else None)
-            print(f"[AUTH DEBUG] resolved_name={resolved_name}")
             return {
                 "user_id": user_id,
                 "is_new_user": False,
@@ -107,4 +100,5 @@ class AuthenticateUser(APIOperation):
         for hook in self._post_signup_hooks:
             await hook(user_id)
 
+        logger.info(f"New user created: {user_id}")
         return {"user_id": user_id, "is_new_user": True, "name": name}
