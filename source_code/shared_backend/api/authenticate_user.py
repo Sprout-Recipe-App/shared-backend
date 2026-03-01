@@ -64,6 +64,13 @@ class AuthenticateUser(APIOperation):
 
         existing_user = await User.find_one({"account.user_id": user_id})
 
+        print(f"[AUTH DEBUG] user_id={user_id}")
+        print(f"[AUTH DEBUG] name from request={name}")
+        print(f"[AUTH DEBUG] existing_user found={existing_user is not None}")
+        if existing_user:
+            print(f"[AUTH DEBUG] existing_user.identity={existing_user.identity}")
+            print(f"[AUTH DEBUG] existing_user.account={existing_user.account}")
+
         if existing_user:
             updates = {}
             if name:
@@ -77,9 +84,11 @@ class AuthenticateUser(APIOperation):
                 elif not existing_user.identity and name:
                     updates.setdefault("identity", {})["birthday"] = birthday
             if updates:
+                print(f"[AUTH DEBUG] updating user with: {updates}")
                 await User.update_one({"account.user_id": user_id}, {"$set": updates})
 
             resolved_name = name or (existing_user.identity.name if existing_user.identity else None)
+            print(f"[AUTH DEBUG] resolved_name={resolved_name}")
             return {
                 "user_id": user_id,
                 "is_new_user": False,
