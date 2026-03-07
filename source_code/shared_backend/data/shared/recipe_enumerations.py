@@ -1,13 +1,13 @@
 from enum import StrEnum, auto
 
+import pycountry
 from pydantic_core import core_schema
 
 
 class CamelCaseEnum(StrEnum):
     @staticmethod
     def _generate_next_value_(name, *_):
-        parts = name.lower().split("_")
-        return parts[0] + "".join(p.capitalize() for p in parts[1:])
+        return name[0].lower() + name.title().replace("_", "")[1:]
 
 
 class DietType(CamelCaseEnum):
@@ -29,7 +29,7 @@ class DishType(CamelCaseEnum):
 
 class Cuisine(StrEnum):
     _ignore_ = ["_code"]
-    international = "international"
+    fusion = "fusion"
     for _code in (
         "AF AL DZ AD AO AG AR AM AU AT AZ BS BH BD BB BY BE BZ BJ BT BO BA BW BR "
         "BN BG BF BI CV KH CM CA CF TD CL CN CO KM CG CR CI HR CU CY CZ KP CD DK "
@@ -44,29 +44,26 @@ class Cuisine(StrEnum):
 
     @property
     def display_name(self):
-        import pycountry
-
-        c = pycountry.countries.get(alpha_2=self.value)
-        return c.name if c else self.value.title()
-
-    @classmethod
-    def _parse(cls, v):
-        vl = v.lower()
-        return next(
-            (m for m in cls if vl in (m.value.lower(), m.display_name.lower())), None
-        ) or cls(v)
+        return getattr(
+            pycountry.countries.get(alpha_2=self.value), "name", self.value.title()
+        )
 
     @classmethod
     def __get_pydantic_core_schema__(cls, *_):
+        lookup = {
+            key: member
+            for member in cls
+            for key in (member.value.lower(), member.display_name.lower())
+        }
         return core_schema.no_info_after_validator_function(
-            cls._parse,
+            lambda value: lookup.get(value.lower()) or cls(value),
             core_schema.str_schema(),
             serialization=core_schema.plain_serializer_function_ser_schema(str),
         )
 
     @classmethod
     def __get_pydantic_json_schema__(cls, *_) -> dict:
-        return {"type": "string", "enum": [m.value for m in cls]}
+        return {"type": "string", "enum": [member.value for member in cls]}
 
 
 class RecipeComplexity(CamelCaseEnum):
